@@ -418,13 +418,36 @@
     .resume-wrap {
       max-width: 940px;
       margin: 0 auto;
+      display: grid;
+      gap: 26px;
+    }
+
+    .resume-page {
+      display: grid;
+      gap: 8px;
+    }
+
+    .page-label {
+      justify-self: end;
+      color: var(--muted);
+      font-size: 12px;
     }
 
     .paper {
-      min-height: 1123px;
+      width: 794px;
+      height: 1123px;
       padding: 58px 66px;
       background: white;
       box-shadow: var(--shadow);
+    }
+
+    .resume-measure {
+      position: absolute;
+      left: -99999px;
+      top: 0;
+      width: 794px;
+      visibility: hidden;
+      pointer-events: none;
     }
 
     .resume-header {
@@ -797,7 +820,12 @@
         overflow: visible;
       }
 
+      .resume-wrap {
+        max-width: 100%;
+      }
+
       .paper {
+        width: 100%;
         padding: 38px 28px;
       }
     }
@@ -888,13 +916,28 @@
       }
 
       .resume-wrap {
-        max-width: 210mm;
-        margin: 0 auto;
+        display: block;
+        max-width: none;
+        margin: 0;
+      }
+
+      .resume-page {
+        display: block;
+        page-break-after: always;
+      }
+
+      .resume-page:last-child {
+        page-break-after: auto;
+      }
+
+      .page-label,
+      .resume-measure {
+        display: none;
       }
 
       .paper {
         width: 210mm;
-        min-height: 297mm;
+        height: 297mm;
         box-shadow: none;
       }
     }
@@ -1000,9 +1043,8 @@
     </aside>
 
     <section class="preview-pane" aria-label="简历预览区">
-      <div class="resume-wrap">
-        <article class="paper" id="resumePreview"></article>
-      </div>
+      <div class="resume-wrap" id="resumePreview" aria-live="polite"></div>
+      <div class="resume-measure" id="resumeMeasure" aria-hidden="true"></div>
     </section>
   </main>
 
@@ -1219,10 +1261,16 @@
       return `<section class="resume-section"><h3>${title}</h3>${content}</section>`;
     }
 
-    function renderResume() {
-      const preview = document.getElementById("resumePreview");
-      preview.dataset.template = data.template;
+    function sectionBlocks(title, items) {
+      return items.filter(Boolean).map((item, index) => `
+        <section class="resume-section">
+          <h3>${index === 0 ? title : `${title}（续）`}</h3>
+          ${item}
+        </section>
+      `);
+    }
 
+    function buildResumeBlocks() {
       const contact = [data.phone, data.email, data.city, data.website]
         .filter(Boolean)
         .map((item) => `<span>${escapeHtml(item)}</span>`)
@@ -1235,52 +1283,120 @@
         .map((skill) => `<span class="skill-pill">${escapeHtml(skill)}</span>`)
         .join("");
 
-      const education = data.education.map((item) => `
+      const educationItems = data.education.map((item) => `
         <div class="resume-item">
           <div class="row"><strong>${escapeHtml(item.school || "学校名称")}</strong><span class="meta">${escapeHtml(item.time)}</span></div>
           <p class="subline">${escapeHtml(item.major)}</p>
           ${linesToList(item.detail)}
         </div>
-      `).join("");
+      `);
 
-      const work = data.work.map((item) => `
+      const workItems = data.work.map((item) => `
         <div class="resume-item">
           <div class="row"><strong>${escapeHtml(item.company || "公司名称")}</strong><span class="meta">${escapeHtml(item.time)}</span></div>
           <p class="subline">${escapeHtml(item.role)}</p>
           ${linesToList(item.detail)}
         </div>
-      `).join("");
+      `);
 
-      const project = data.project.map((item) => `
+      const projectItems = data.project.map((item) => `
         <div class="resume-item">
           <div class="row"><strong>${escapeHtml(item.name || "项目名称")}</strong><span class="meta">${escapeHtml(item.time)}</span></div>
           <p class="subline">${escapeHtml(item.role)}</p>
           ${linesToList(item.detail)}
         </div>
-      `).join("");
+      `);
 
-      const achievement = data.achievement.map((item) => `
+      const achievementItems = data.achievement.map((item) => `
         <div class="resume-item">
           <div class="row"><strong>${escapeHtml(item.name || "成果名称")}</strong><span class="meta">${escapeHtml(item.time)}</span></div>
           ${linesToList(item.detail)}
         </div>
-      `).join("");
+      `);
 
-      preview.innerHTML = `
-        <header class="resume-header">
-          <div>
-            <h2>${escapeHtml(data.name || "你的姓名")}</h2>
-            <p class="target-role">${escapeHtml(data.title || "目标职位")}</p>
-          </div>
-          <div class="contact">${contact || "<span>填写联系方式后会显示在这里</span>"}</div>
-        </header>
-        ${sectionHtml("个人优势", data.summary ? `<p class="summary">${escapeHtml(data.summary)}</p>` : `<p class="empty-hint">填写个人优势后会显示在这里。</p>`)}
-        ${sectionHtml("技能关键词", skills ? `<div class="skills-line">${skills}</div>` : "")}
-        ${sectionHtml("教育经历", education)}
-        ${sectionHtml("工作经历", work)}
-        ${sectionHtml("项目经历", project)}
-        ${sectionHtml("取得成果", achievement)}
+      return {
+        header: `
+          <header class="resume-header">
+            <div>
+              <h2>${escapeHtml(data.name || "你的姓名")}</h2>
+              <p class="target-role">${escapeHtml(data.title || "目标职位")}</p>
+            </div>
+            <div class="contact">${contact || "<span>填写联系方式后会显示在这里</span>"}</div>
+          </header>
+        `,
+        sections: [
+          sectionHtml("个人优势", data.summary ? `<p class="summary">${escapeHtml(data.summary)}</p>` : `<p class="empty-hint">填写个人优势后会显示在这里。</p>`),
+          sectionHtml("技能关键词", skills ? `<div class="skills-line">${skills}</div>` : ""),
+          ...sectionBlocks("教育经历", educationItems),
+          ...sectionBlocks("工作经历", workItems),
+          ...sectionBlocks("项目经历", projectItems),
+          ...sectionBlocks("取得成果", achievementItems)
+        ].filter(Boolean)
+      };
+    }
+
+    function createPreviewPage(pageNumber, blocks) {
+      return `
+        <div class="resume-page">
+          <div class="page-label">第 ${pageNumber} 页</div>
+          <article class="paper" data-template="${data.template}">
+            ${blocks.join("")}
+          </article>
+        </div>
       `;
+    }
+
+    function createMeasurePaper() {
+      const measure = document.getElementById("resumeMeasure");
+      measure.innerHTML = `<article class="paper" data-template="${data.template}"></article>`;
+      return measure.querySelector(".paper");
+    }
+
+    function canFitBlock(paper, block, maxHeight) {
+      const marker = document.createElement("div");
+      marker.innerHTML = block;
+      const element = marker.firstElementChild;
+      paper.appendChild(element);
+      const fits = paper.scrollHeight <= maxHeight;
+      element.remove();
+      return fits;
+    }
+
+    function paginateResume(blocks) {
+      const measurePaper = createMeasurePaper();
+      const pageHeight = measurePaper.clientHeight;
+      const pages = [];
+      let currentBlocks = [blocks.header];
+
+      measurePaper.innerHTML = currentBlocks.join("");
+
+      blocks.sections.forEach((section) => {
+        if (canFitBlock(measurePaper, section, pageHeight)) {
+          currentBlocks.push(section);
+          measurePaper.innerHTML = currentBlocks.join("");
+          return;
+        }
+
+        pages.push(currentBlocks);
+        currentBlocks = [section];
+        measurePaper.innerHTML = currentBlocks.join("");
+      });
+
+      if (currentBlocks.length) {
+        pages.push(currentBlocks);
+      }
+
+      return pages.length ? pages : [[blocks.header]];
+    }
+
+    function renderResume() {
+      const preview = document.getElementById("resumePreview");
+      const blocks = buildResumeBlocks();
+      const pages = paginateResume(blocks);
+
+      preview.innerHTML = pages
+        .map((pageBlocks, index) => createPreviewPage(index + 1, pageBlocks))
+        .join("");
     }
 
     function render() {
@@ -1293,8 +1409,15 @@
       saveData();
     }
 
+    function getResumeExportHtml() {
+      const clone = document.createElement("div");
+      clone.innerHTML = document.getElementById("resumePreview").innerHTML;
+      clone.querySelectorAll(".page-label").forEach((label) => label.remove());
+      return clone.innerHTML;
+    }
+
     function downloadWord() {
-      const content = document.getElementById("resumePreview").outerHTML;
+      const content = getResumeExportHtml();
       const styles = Array.from(document.querySelectorAll("style")).map((style) => style.innerHTML).join("\n");
       const html = `
         <!doctype html>
@@ -1321,7 +1444,7 @@
     }
 
     function exportPdf() {
-      const content = document.getElementById("resumePreview").outerHTML;
+      const content = getResumeExportHtml();
       const styles = Array.from(document.querySelectorAll("style")).map((style) => style.innerHTML).join("\n");
       const printWindow = window.open("", "_blank", "width=920,height=1200");
 
@@ -1358,14 +1481,27 @@
               }
 
               .pdf-export .resume-wrap {
+                display: block;
                 width: 210mm;
                 max-width: none;
                 margin: 0;
               }
 
+              .pdf-export .page-label {
+                display: none;
+              }
+
+              .pdf-export .resume-page {
+                page-break-after: always;
+              }
+
+              .pdf-export .resume-page:last-child {
+                page-break-after: auto;
+              }
+
               .pdf-export .paper {
                 width: 210mm;
-                min-height: 297mm;
+                height: 297mm;
                 padding: 58px 66px;
                 box-shadow: none;
               }
