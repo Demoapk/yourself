@@ -593,18 +593,20 @@
     }
 
     .paper[data-template="sidebar"] {
-      display: grid;
-      grid-template-columns: 235px minmax(0, 1fr);
-      gap: 0 34px;
-      padding: 0 54px 48px 0;
+      position: relative;
+      display: block;
+      padding: 54px 54px 48px 269px;
       overflow: hidden;
     }
 
     .paper[data-template="sidebar"] .resume-header {
-      grid-column: 1;
-      grid-row: 1 / span 20;
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
       display: block;
-      min-height: 1123px;
+      width: 235px;
+      height: 100%;
       padding: 54px 24px;
       color: white;
       background: #254e58;
@@ -628,12 +630,11 @@
     }
 
     .paper[data-template="sidebar"] .resume-section {
-      grid-column: 2;
       margin-top: 26px;
     }
 
     .paper[data-template="sidebar"] .resume-section:first-of-type {
-      margin-top: 54px;
+      margin-top: 0;
     }
 
     .paper[data-template="sidebar"] .resume-section h3 {
@@ -651,6 +652,19 @@
     .paper[data-template="sidebar"] .skill-pill {
       color: #254e58;
       background: #e8f0f1;
+    }
+
+    .paper[data-template="sidebar"][data-continuation="false"] {
+      padding-left: 269px;
+    }
+
+    .paper[data-template="sidebar"][data-continuation="true"] {
+      padding: 54px 54px 48px 48px;
+      background: linear-gradient(90deg, #254e58 0 18px, #ffffff 18px);
+    }
+
+    .paper[data-template="sidebar"][data-continuation="true"] .resume-section:first-child {
+      margin-top: 0;
     }
 
     .paper[data-template="timeline"] {
@@ -807,6 +821,19 @@
     .paper[data-template="portfolio"] .skill-pill {
       color: #20314b;
       background: #fff1c7;
+    }
+
+    .paper[data-template="portfolio"][data-continuation="true"] {
+      padding: 54px;
+      background: #ffffff;
+    }
+
+    .paper[data-template="portfolio"][data-continuation="true"] .resume-section {
+      margin-top: 18px;
+    }
+
+    .paper[data-template="portfolio"][data-continuation="true"] .resume-section:first-child {
+      margin-top: 0;
     }
 
     @media (max-width: 980px) {
@@ -1336,19 +1363,21 @@
     }
 
     function createPreviewPage(pageNumber, blocks) {
+      const pageIndex = pageNumber - 1;
+      const isContinuation = pageIndex > 0;
       return `
-        <div class="resume-page">
+        <div class="resume-page" data-page-index="${pageIndex}">
           <div class="page-label">第 ${pageNumber} 页</div>
-          <article class="paper" data-template="${data.template}">
+          <article class="paper" data-template="${data.template}" data-page-index="${pageIndex}" data-continuation="${isContinuation}">
             ${blocks.join("")}
           </article>
         </div>
       `;
     }
 
-    function createMeasurePaper() {
+    function createMeasurePaper(isContinuation) {
       const measure = document.getElementById("resumeMeasure");
-      measure.innerHTML = `<article class="paper" data-template="${data.template}"></article>`;
+      measure.innerHTML = `<article class="paper" data-template="${data.template}" data-continuation="${isContinuation}"></article>`;
       return measure.querySelector(".paper");
     }
 
@@ -1363,22 +1392,24 @@
     }
 
     function paginateResume(blocks) {
-      const measurePaper = createMeasurePaper();
-      const pageHeight = measurePaper.clientHeight;
+      let isContinuation = false;
+      let measurePaper = createMeasurePaper(isContinuation);
       const pages = [];
       let currentBlocks = [blocks.header];
 
       measurePaper.innerHTML = currentBlocks.join("");
 
       blocks.sections.forEach((section) => {
-        if (canFitBlock(measurePaper, section, pageHeight)) {
+        if (canFitBlock(measurePaper, section, measurePaper.clientHeight)) {
           currentBlocks.push(section);
           measurePaper.innerHTML = currentBlocks.join("");
           return;
         }
 
         pages.push(currentBlocks);
+        isContinuation = true;
         currentBlocks = [section];
+        measurePaper = createMeasurePaper(isContinuation);
         measurePaper.innerHTML = currentBlocks.join("");
       });
 
@@ -1513,10 +1544,15 @@
               }
 
               .pdf-export .paper[data-template="sidebar"] {
-                display: grid;
-                grid-template-columns: 235px minmax(0, 1fr);
-                padding: 0 54px 48px 0;
+                position: relative;
+                display: block;
+                padding: 54px 54px 48px 269px;
                 background: white;
+              }
+
+              .pdf-export .paper[data-template="sidebar"][data-continuation="true"] {
+                padding: 54px 54px 48px 48px;
+                background: linear-gradient(90deg, #254e58 0 18px, #ffffff 18px);
               }
 
               .pdf-export .paper[data-template="timeline"] {
@@ -1539,6 +1575,11 @@
                   #ffffff;
               }
 
+              .pdf-export .paper[data-template="portfolio"][data-continuation="true"] {
+                padding: 54px;
+                background: #ffffff;
+              }
+
               @media print {
                 html,
                 body,
@@ -1553,8 +1594,12 @@
                 }
 
                 .pdf-export .paper[data-template="sidebar"] {
-                  display: grid;
-                  padding: 0 54px 48px 0;
+                  display: block;
+                  padding: 54px 54px 48px 269px;
+                }
+
+                .pdf-export .paper[data-template="sidebar"][data-continuation="true"] {
+                  padding: 54px 54px 48px 48px;
                 }
 
                 .pdf-export .paper[data-template="timeline"] {
@@ -1567,6 +1612,10 @@
 
                 .pdf-export .paper[data-template="portfolio"] {
                   padding: 0 54px 54px;
+                }
+
+                .pdf-export .paper[data-template="portfolio"][data-continuation="true"] {
+                  padding: 54px;
                 }
               }
             </style>
